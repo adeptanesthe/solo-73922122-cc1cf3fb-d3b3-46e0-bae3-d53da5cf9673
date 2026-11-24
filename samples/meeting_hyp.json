@@ -1,0 +1,282 @@
+[
+  {
+    "word": "早上好",
+    "time_ms": 1250,
+    "speaker": "T1"
+  },
+  {
+    "word": "今天",
+    "time_ms": 1520,
+    "speaker": "T1"
+  },
+  {
+    "word": "我们",
+    "time_ms": 1880,
+    "speaker": "T1"
+  },
+  {
+    "word": "讨论",
+    "time_ms": 2170,
+    "speaker": "T1"
+  },
+  {
+    "word": "新版本",
+    "time_ms": 2600,
+    "speaker": "T1"
+  },
+  {
+    "word": "的",
+    "time_ms": 2960,
+    "speaker": "T1"
+  },
+  {
+    "word": "验收",
+    "time_ms": 3320,
+    "speaker": "T1"
+  },
+  {
+    "word": "计划",
+    "time_ms": 3680,
+    "speaker": "T1"
+  },
+  {
+    "word": "这版",
+    "time_ms": 4540,
+    "speaker": "T3"
+  },
+  {
+    "word": "主要",
+    "time_ms": 4980,
+    "speaker": "T3"
+  },
+  {
+    "word": "调整",
+    "time_ms": 5260,
+    "speaker": "T3"
+  },
+  {
+    "word": "了",
+    "time_ms": 5620,
+    "speaker": "T3"
+  },
+  {
+    "word": "搜索",
+    "time_ms": 5980,
+    "speaker": "T3"
+  },
+  {
+    "word": "和",
+    "time_ms": 6340,
+    "speaker": "T3"
+  },
+  {
+    "word": "登录",
+    "time_ms": 6700,
+    "speaker": "T3"
+  },
+  {
+    "word": "流程",
+    "time_ms": 7060,
+    "speaker": "T3"
+  },
+  {
+    "word": "后端",
+    "time_ms": 7920,
+    "speaker": "T2"
+  },
+  {
+    "word": "接口",
+    "time_ms": 8400,
+    "speaker": "T2"
+  },
+  {
+    "word": "已经",
+    "time_ms": 8640,
+    "speaker": "T2"
+  },
+  {
+    "word": "联调",
+    "time_ms": 9000,
+    "speaker": "T2"
+  },
+  {
+    "word": "并且",
+    "time_ms": 9060,
+    "speaker": "T2"
+  },
+  {
+    "word": "搞定",
+    "time_ms": 9360,
+    "speaker": "T2"
+  },
+  {
+    "word": "前端",
+    "time_ms": 9720,
+    "speaker": "T2"
+  },
+  {
+    "word": "还差",
+    "time_ms": 10080,
+    "speaker": "T2"
+  },
+  {
+    "word": "两个",
+    "time_ms": 10440,
+    "speaker": "T2"
+  },
+  {
+    "word": "界面",
+    "time_ms": 10690,
+    "speaker": "T2"
+  },
+  {
+    "word": "风险",
+    "time_ms": 11660,
+    "speaker": "T1"
+  },
+  {
+    "word": "清单",
+    "time_ms": 12020,
+    "speaker": "T1"
+  },
+  {
+    "word": "里",
+    "time_ms": 12380,
+    "speaker": "T1"
+  },
+  {
+    "word": "还有",
+    "time_ms": 12740,
+    "speaker": "T1"
+  },
+  {
+    "word": "哪些",
+    "time_ms": 13100,
+    "speaker": "T1"
+  },
+  {
+    "word": "没有",
+    "time_ms": 13460,
+    "speaker": "T1"
+  },
+  {
+    "word": "关闭",
+    "time_ms": 13820,
+    "speaker": "T1"
+  },
+  {
+    "word": "支付",
+    "time_ms": 14680,
+    "speaker": "T3"
+  },
+  {
+    "word": "回调",
+    "time_ms": 15040,
+    "speaker": "T3"
+  },
+  {
+    "word": "的",
+    "time_ms": 15400,
+    "speaker": "T3"
+  },
+  {
+    "word": "重试",
+    "time_ms": 15760,
+    "speaker": "T3"
+  },
+  {
+    "word": "需要",
+    "time_ms": 16120,
+    "speaker": "T3"
+  },
+  {
+    "word": "再",
+    "time_ms": 16480,
+    "speaker": "T3"
+  },
+  {
+    "word": "确认",
+    "time_ms": 16780,
+    "speaker": "T3"
+  },
+  {
+    "word": "我们",
+    "time_ms": 17700,
+    "speaker": "T2"
+  },
+  {
+    "word": "计划",
+    "time_ms": 18060,
+    "speaker": "T2"
+  },
+  {
+    "word": "周四",
+    "time_ms": 18420,
+    "speaker": "T2"
+  },
+  {
+    "word": "上线",
+    "time_ms": 18780,
+    "speaker": "T2"
+  },
+  {
+    "word": "灰度",
+    "time_ms": 19140,
+    "speaker": "T2"
+  },
+  {
+    "word": "好",
+    "time_ms": 20000,
+    "speaker": "T1"
+  },
+  {
+    "word": "请",
+    "time_ms": 20360,
+    "speaker": "T1"
+  },
+  {
+    "word": "产品",
+    "time_ms": 20720,
+    "speaker": "T1"
+  },
+  {
+    "word": "周四",
+    "time_ms": 21080,
+    "speaker": "T1"
+  },
+  {
+    "word": "前",
+    "time_ms": 21440,
+    "speaker": "T1"
+  },
+  {
+    "word": "给出",
+    "time_ms": 21800,
+    "speaker": "T1"
+  },
+  {
+    "word": "验收",
+    "time_ms": 22160,
+    "speaker": "T1"
+  },
+  {
+    "word": "结论",
+    "time_ms": 22520,
+    "speaker": "T1"
+  },
+  {
+    "word": "谢谢",
+    "time_ms": 23780,
+    "speaker": "T4"
+  },
+  {
+    "word": "大家",
+    "time_ms": 24080,
+    "speaker": "T4"
+  },
+  {
+    "word": "再见",
+    "time_ms": 24380,
+    "speaker": "T4"
+  }
+]

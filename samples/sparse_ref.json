@@ -1,0 +1,57 @@
+[
+  {
+    "word": "预算",
+    "time_ms": 1000,
+    "speaker": "S1"
+  },
+  {
+    "word": "需要",
+    "time_ms": 1420,
+    "speaker": "S1"
+  },
+  {
+    "word": "重新",
+    "time_ms": 1840,
+    "speaker": "S1"
+  },
+  {
+    "word": "核算",
+    "time_ms": 2260,
+    "speaker": "S1"
+  },
+  {
+    "word": "客户",
+    "time_ms": 4200,
+    "speaker": "S2"
+  },
+  {
+    "word": "反馈",
+    "time_ms": 4620,
+    "speaker": "S2"
+  },
+  {
+    "word": "已经",
+    "time_ms": 5040,
+    "speaker": "S2"
+  },
+  {
+    "word": "收到",
+    "time_ms": 5460,
+    "speaker": "S2"
+  },
+  {
+    "word": "临时",
+    "time_ms": 7600,
+    "speaker": "S3"
+  },
+  {
+    "word": "议题",
+    "time_ms": 8020,
+    "speaker": "S3"
+  },
+  {
+    "word": "取消",
+    "time_ms": 8440,
+    "speaker": "S3"
+  }
+]

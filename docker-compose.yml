@@ -1,0 +1,23 @@
+services:
+  transcript-review:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: transcript-review:local
+    ports:
+      - "8000:8000"
+    environment:
+      # Set a stable key locally so sessions survive a restart; the container
+      # generates a random one when this is absent.
+      APP_SECRET_KEY: "local-review-secret-change-me"
+    restart: unless-stopped
+    healthcheck:
+      test:
+        - CMD
+        - python
+        - -c
+        - "import urllib.request,sys; sys.exit(0 if urllib.request.urlopen('http://127.0.0.1:8000/healthz', timeout=3).status == 200 else 1)"
+      interval: 30s
+      timeout: 4s
+      start_period: 10s
+      retries: 3

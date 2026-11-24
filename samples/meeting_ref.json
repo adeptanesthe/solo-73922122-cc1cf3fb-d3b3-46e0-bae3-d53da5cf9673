@@ -1,0 +1,267 @@
+[
+  {
+    "word": "各位",
+    "time_ms": 800,
+    "speaker": "S1"
+  },
+  {
+    "word": "早上好",
+    "time_ms": 1160,
+    "speaker": "S1"
+  },
+  {
+    "word": "今天",
+    "time_ms": 1520,
+    "speaker": "S1"
+  },
+  {
+    "word": "我们",
+    "time_ms": 1880,
+    "speaker": "S1"
+  },
+  {
+    "word": "讨论",
+    "time_ms": 2240,
+    "speaker": "S1"
+  },
+  {
+    "word": "新版本",
+    "time_ms": 2600,
+    "speaker": "S1"
+  },
+  {
+    "word": "的",
+    "time_ms": 2960,
+    "speaker": "S1"
+  },
+  {
+    "word": "验收",
+    "time_ms": 3320,
+    "speaker": "S1"
+  },
+  {
+    "word": "安排",
+    "time_ms": 3680,
+    "speaker": "S1"
+  },
+  {
+    "word": "这版",
+    "time_ms": 4540,
+    "speaker": "S2"
+  },
+  {
+    "word": "主要",
+    "time_ms": 4900,
+    "speaker": "S2"
+  },
+  {
+    "word": "调整",
+    "time_ms": 5260,
+    "speaker": "S2"
+  },
+  {
+    "word": "了",
+    "time_ms": 5620,
+    "speaker": "S2"
+  },
+  {
+    "word": "搜索",
+    "time_ms": 5980,
+    "speaker": "S2"
+  },
+  {
+    "word": "和",
+    "time_ms": 6340,
+    "speaker": "S2"
+  },
+  {
+    "word": "登录",
+    "time_ms": 6700,
+    "speaker": "S2"
+  },
+  {
+    "word": "流程",
+    "time_ms": 7060,
+    "speaker": "S2"
+  },
+  {
+    "word": "后端",
+    "time_ms": 7920,
+    "speaker": "S3"
+  },
+  {
+    "word": "接口",
+    "time_ms": 8280,
+    "speaker": "S3"
+  },
+  {
+    "word": "已经",
+    "time_ms": 8640,
+    "speaker": "S3"
+  },
+  {
+    "word": "联调",
+    "time_ms": 9000,
+    "speaker": "S3"
+  },
+  {
+    "word": "完成",
+    "time_ms": 9360,
+    "speaker": "S3"
+  },
+  {
+    "word": "前端",
+    "time_ms": 9720,
+    "speaker": "S3"
+  },
+  {
+    "word": "还差",
+    "time_ms": 10080,
+    "speaker": "S3"
+  },
+  {
+    "word": "两个",
+    "time_ms": 10440,
+    "speaker": "S3"
+  },
+  {
+    "word": "页面",
+    "time_ms": 10800,
+    "speaker": "S3"
+  },
+  {
+    "word": "风险",
+    "time_ms": 11660,
+    "speaker": "S1"
+  },
+  {
+    "word": "清单",
+    "time_ms": 12020,
+    "speaker": "S1"
+  },
+  {
+    "word": "里",
+    "time_ms": 12380,
+    "speaker": "S1"
+  },
+  {
+    "word": "还有",
+    "time_ms": 12740,
+    "speaker": "S1"
+  },
+  {
+    "word": "哪些",
+    "time_ms": 13100,
+    "speaker": "S1"
+  },
+  {
+    "word": "没有",
+    "time_ms": 13460,
+    "speaker": "S1"
+  },
+  {
+    "word": "关闭",
+    "time_ms": 13820,
+    "speaker": "S1"
+  },
+  {
+    "word": "支付",
+    "time_ms": 14680,
+    "speaker": "S2"
+  },
+  {
+    "word": "回调",
+    "time_ms": 15040,
+    "speaker": "S2"
+  },
+  {
+    "word": "的",
+    "time_ms": 15400,
+    "speaker": "S2"
+  },
+  {
+    "word": "重试",
+    "time_ms": 15760,
+    "speaker": "S2"
+  },
+  {
+    "word": "需要",
+    "time_ms": 16120,
+    "speaker": "S2"
+  },
+  {
+    "word": "再",
+    "time_ms": 16480,
+    "speaker": "S2"
+  },
+  {
+    "word": "确认",
+    "time_ms": 16840,
+    "speaker": "S2"
+  },
+  {
+    "word": "我们",
+    "time_ms": 17700,
+    "speaker": "S3"
+  },
+  {
+    "word": "计划",
+    "time_ms": 18060,
+    "speaker": "S3"
+  },
+  {
+    "word": "周四",
+    "time_ms": 18420,
+    "speaker": "S3"
+  },
+  {
+    "word": "上线",
+    "time_ms": 18780,
+    "speaker": "S3"
+  },
+  {
+    "word": "灰度",
+    "time_ms": 19140,
+    "speaker": "S3"
+  },
+  {
+    "word": "好",
+    "time_ms": 20000,
+    "speaker": "S1"
+  },
+  {
+    "word": "请",
+    "time_ms": 20360,
+    "speaker": "S1"
+  },
+  {
+    "word": "产品",
+    "time_ms": 20720,
+    "speaker": "S1"
+  },
+  {
+    "word": "周四",
+    "time_ms": 21080,
+    "speaker": "S1"
+  },
+  {
+    "word": "前",
+    "time_ms": 21440,
+    "speaker": "S1"
+  },
+  {
+    "word": "给出",
+    "time_ms": 21800,
+    "speaker": "S1"
+  },
+  {
+    "word": "验收",
+    "time_ms": 22160,
+    "speaker": "S1"
+  },
+  {
+    "word": "结论",
+    "time_ms": 22520,
+    "speaker": "S1"
+  }
+]

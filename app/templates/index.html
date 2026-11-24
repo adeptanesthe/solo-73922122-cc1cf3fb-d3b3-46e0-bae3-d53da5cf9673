@@ -1,0 +1,284 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>转写验收 · 说话人配对核验</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+<header class="masthead">
+  <div class="masthead-inner">
+    <div>
+      <p class="kicker">会议字幕质检</p>
+      <h1>转写验收 · 说话人配对核验</h1>
+      <p class="lede">
+        上传人工稿与识别稿，按最少错误求全场的说话人一对一配对，逐词查看多词、漏词和替换。
+      </p>
+    </div>
+    <div class="rules" aria-label="评分规则">
+      <span>每稿 ≤ {{ MAX_WORDS }} 词</span>
+      <span>每稿 ≤ {{ MAX_SPEAKERS }} 人</span>
+      <span>词距 ≤ {{ MAX_ALIGN_GAP_MS }} ms 才可对齐</span>
+    </div>
+  </div>
+</header>
+
+<main>
+  {% if error %}
+    <div class="banner banner-error" role="alert">
+      <strong>上传未通过</strong>
+      <p>{{ error }}</p>
+    </div>
+  {% endif %}
+  {% if notice %}
+    <div class="banner banner-ok" role="status">{{ notice }}</div>
+  {% endif %}
+  {% if lock_error %}
+    <div class="banner banner-warn" role="alert">
+      <strong>锁定冲突</strong>
+      <p>{{ lock_error }}</p>
+    </div>
+  {% endif %}
+
+  <section class="panel" aria-labelledby="upload-title">
+    <div class="panel-head">
+      <h2 id="upload-title">1 · 上传两稿</h2>
+      {% if snapshot %}
+        <form method="post" action="{{ url_for('reset') }}" class="inline-form">
+          <button type="submit" class="button button-quiet">清空重来</button>
+        </form>
+      {% endif %}
+    </div>
+    <form method="post" action="{{ url_for('upload') }}"
+          enctype="multipart/form-data" class="upload-grid">
+      <label class="file-card">
+        <span class="file-card-title">人工稿 JSON</span>
+        <span class="file-card-hint">必须非空；用于统计词错率的分母</span>
+        <input type="file" name="ref_file" accept=".json,application/json" required>
+        {% if ref_name %}<span class="file-current">当前：{{ ref_name }}</span>{% endif %}
+      </label>
+      <label class="file-card">
+        <span class="file-card-title">识别稿 JSON</span>
+        <span class="file-card-hint">允许为空稿；空稿的所有人工词都会计漏词</span>
+        <input type="file" name="hyp_file" accept=".json,application/json" required>
+        {% if hyp_name %}<span class="file-current">当前：{{ hyp_name }}</span>{% endif %}
+      </label>
+      <div class="upload-actions">
+        <button type="submit" class="button button-primary">载入并计算最少错误</button>
+        <details class="format-help">
+          <summary>JSON 格式</summary>
+          <pre>[
+  {"word": "各位", "time_ms": 800, "speaker": "S1"},
+  {"word": "早上好", "time_ms": 1160, "speaker": "S1"}
+]</pre>
+          <p>也接受 <code>{"words": [...]}</code>。时间必须是整数毫秒。</p>
+        </details>
+      </div>
+    </form>
+    <div class="sample-picker">
+      <span class="sample-label">或直接载入示例稿（这些稿件也以文件形式放在 <code>samples/</code>）</span>
+      {% for key, entry in SAMPLE_SETS.items() %}
+        <form method="post" action="{{ url_for('load_sample') }}" class="inline-form">
+          <input type="hidden" name="sample" value="{{ key }}">
+          <button type="submit" class="button button-small">{{ entry.title }}
+            <span class="sample-files">{{ entry.ref }} + {{ entry.hyp }}</span>
+          </button>
+        </form>
+      {% endfor %}
+    </div>
+  </section>
+
+  {% if snapshot and snapshot.result %}
+    {% set result = snapshot.result %}
+    <section class="scoreboard" aria-labelledby="score-title">
+      <h2 id="score-title" class="sr-only">评分</h2>
+      <div class="score-card score-main">
+        <span class="score-label">全场最少错误</span>
+        <span class="score-value">{{ result.total_errors }}</span>
+        <span class="score-sub">次（插入 + 删除 + 替换）</span>
+      </div>
+      <div class="score-card">
+        <span class="score-label">词错率 WER</span>
+        <span class="score-value">{{ '%.2f'|format(result.wer * 100) }}<small>%</small></span>
+        <span class="score-sub">{{ result.total_errors }} / {{ result.ref_word_count }} 人工词</span>
+      </div>
+      <div class="score-card">
+        <span class="score-label">错误构成</span>
+        <span class="score-split">
+          <span><b>{{ result.substitution_count }}</b> 替换</span>
+          <span><b>{{ result.deletion_count }}</b> 漏词</span>
+          <span><b>{{ result.insertion_count }}</b> 多词</span>
+        </span>
+        <span class="score-sub">{{ result.ref_word_count }} 人工词 · {{ result.hyp_word_count }} 识别词</span>
+      </div>
+      <div class="score-card">
+        <span class="score-label">当前有效锁定</span>
+        <span class="score-sub">
+          {% if snapshot.locks %}
+            {% for ref_sp, hyp_sp in snapshot.locks %}{{ ref_sp }} ⇄ {{ hyp_sp }}{% if not loop.last %}，{% endif %}{% endfor %}
+          {% else %}无（全部由算法配对）{% endif %}
+        </span>
+        <span class="score-sub muted">结果版本 v{{ snapshot.revision }}</span>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="pairing-title">
+      <div class="panel-head">
+        <h2 id="pairing-title">2 · 说话人配对</h2>
+        <p class="panel-note">锁定某个配对后，其余说话人仍按最少错误重新分配；一个识别说话人只能锁给一个人工说话人。</p>
+      </div>
+      <table class="table pairing-table">
+        <thead>
+          <tr>
+            <th scope="col">人工说话人</th>
+            <th scope="col">识别说话人</th>
+            <th scope="col" class="num">人工词</th>
+            <th scope="col" class="num">识别词</th>
+            <th scope="col" class="num">对齐词</th>
+            <th scope="col" class="num">错误</th>
+            <th scope="col">操作</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for pair in result.pairs %}
+          <tr class="{{ 'row-unpaired' if (pair.ref_speaker == '—' or pair.hyp_speaker is none) else '' }}">
+            <td class="speaker">{{ pair.ref_speaker }}</td>
+            <td class="speaker">
+              {% if pair.hyp_speaker %}{{ pair.hyp_speaker }}{% else %}<span class="tag tag-muted">未配对</span>{% endif %}
+            </td>
+            <td class="num">{{ pair.ref_words }}</td>
+            <td class="num">{{ pair.hyp_words }}</td>
+            <td class="num">{{ pair.matches }}</td>
+            <td class="num {{ 'cell-bad' if pair.errors else 'cell-good' }}">{{ pair.errors }}</td>
+            <td class="actions">
+              {% if pair.ref_speaker != '—' %}
+                {% if pair.hyp_speaker and locks.get(pair.ref_speaker) == pair.hyp_speaker %}
+                  <form method="post" action="{{ url_for('update_locks') }}" class="inline-form">
+                    <input type="hidden" name="lock_{{ pair.ref_speaker }}" value="">
+                    <button class="button button-small" type="submit">撤销锁定</button>
+                    <span class="tag tag-locked">已锁定</span>
+                  </form>
+                {% elif pair.hyp_speaker %}
+                  <form method="post" action="{{ url_for('update_locks') }}" class="inline-form">
+                    <input type="hidden" name="lock_{{ pair.ref_speaker }}" value="{{ pair.hyp_speaker }}">
+                    <button class="button button-small" type="submit">锁定此配对</button>
+                  </form>
+                {% else %}
+                  <span class="muted">该人工说话人没有可配对的识别说话人</span>
+                {% endif %}
+              {% else %}
+                <span class="muted">识别稿额外说话人，全部词计多词</span>
+              {% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+
+      <details class="manual-lock">
+        <summary>手动指定 / 撤销配对（表格外的批量入口）</summary>
+        {% if ref_meta and hyp_meta and ref_meta.speakers and hyp_meta.speakers %}
+        <form method="post" action="{{ url_for('update_locks') }}" class="lock-form">
+          <label>
+            人工说话人
+            <select name="manual_ref">
+              {% for speaker in ref_meta.speakers %}
+                <option value="{{ speaker }}">{{ speaker }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <label>
+            识别说话人
+            <select name="manual_hyp">
+              {% for speaker in hyp_meta.speakers %}
+                <option value="{{ speaker }}">{{ speaker }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <input type="hidden" name="manual_mode" value="pair">
+          <button type="submit" class="button button-small">锁定这组配对</button>
+        </form>
+        {% if snapshot.locks %}
+        <form method="post" action="{{ url_for('update_locks') }}" class="lock-form">
+          <label>
+            撤销人工说话人的锁定
+            <select name="manual_unlock">
+              {% for ref_sp, hyp_sp in snapshot.locks %}
+                <option value="{{ ref_sp }}">{{ ref_sp }} ⇄ {{ hyp_sp }}</option>
+              {% endfor %}
+            </select>
+          </label>
+          <input type="hidden" name="manual_mode" value="unlock">
+          <button type="submit" class="button button-small">撤销</button>
+        </form>
+        {% endif %}
+        {% endif %}
+      </details>
+    </section>
+
+    <section class="panel" aria-labelledby="errors-title">
+      <div class="panel-head">
+        <h2 id="errors-title">3 · 错词明细</h2>
+        <p class="panel-note">按时间排序；只显示与最新有效锁定相符的结果。</p>
+      </div>
+      {% if result.errors %}
+      <table class="table error-table">
+        <thead>
+          <tr>
+            <th scope="col">时间</th>
+            <th scope="col">类型</th>
+            <th scope="col">配对</th>
+            <th scope="col">人工稿</th>
+            <th scope="col">识别稿</th>
+          </tr>
+        </thead>
+        <tbody>
+        {% for error in result.errors %}
+          <tr class="kind-{{ error.kind }}">
+            <td class="mono">{{ '%02d:%02d.%03d'|format(error.sort_ms // 60000, (error.sort_ms // 1000) % 60, error.sort_ms % 1000) }}</td>
+            <td>
+              {% if error.kind == 'substitution' %}<span class="tag tag-sub">替换</span>
+              {% elif error.kind == 'deletion' %}<span class="tag tag-del">漏词</span>
+              {% else %}<span class="tag tag-ins">多词</span>{% endif %}
+            </td>
+            <td class="mono">{{ error.pair_label }}</td>
+            <td>
+              {% if error.ref_word %}
+                <span class="word">{{ error.ref_word.text }}</span>
+                <span class="stamp">{{ error.ref_word.time_ms }} ms · {{ error.ref_speaker }}</span>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+            <td>
+              {% if error.hyp_word %}
+                <span class="word">{{ error.hyp_word.text }}</span>
+                <span class="stamp">{{ error.hyp_word.time_ms }} ms · {{ error.hyp_speaker }}</span>
+              {% else %}<span class="muted">—</span>{% endif %}
+            </td>
+          </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+        <p class="empty-state">这一组配对下没有任何错误：所有人工词都在 {{ MAX_ALIGN_GAP_MS }} ms 内找到同词。🎉</p>
+      {% endif %}
+    </section>
+
+    <details class="panel raw-panel">
+      <summary>查看本次结果的 JSON（含锁定与错词）</summary>
+      <pre id="raw-json">加载中…</pre>
+    </details>
+  {% else %}
+    <section class="panel empty-panel">
+      <h2>还没有结果</h2>
+      <p>上传两份 JSON 后，这里会显示最少错误的配对、词错率与逐词错处。可以用 <code>samples/</code> 里的示例稿快速试跑。</p>
+    </section>
+  {% endif %}
+</main>
+
+<footer class="footer">
+  <span>人工稿词数作分母 · 未配对说话人的词全部计入漏词/多词 · 额外内存与总词数线性相关</span>
+</footer>
+<script src="{{ url_for('static', filename='app.js') }}" defer></script>
+</body>
+</html>

@@ -1,0 +1,47 @@
+[
+  {
+    "word": "预算",
+    "time_ms": 1100,
+    "speaker": "T1"
+  },
+  {
+    "word": "需要",
+    "time_ms": 1500,
+    "speaker": "T1"
+  },
+  {
+    "word": "重新",
+    "time_ms": 1940,
+    "speaker": "T1"
+  },
+  {
+    "word": "核算",
+    "time_ms": 3300,
+    "speaker": "T1"
+  },
+  {
+    "word": "完毕",
+    "time_ms": 3800,
+    "speaker": "T1"
+  },
+  {
+    "word": "客户",
+    "time_ms": 4300,
+    "speaker": "T2"
+  },
+  {
+    "word": "反馈",
+    "time_ms": 4700,
+    "speaker": "T2"
+  },
+  {
+    "word": "已经",
+    "time_ms": 5150,
+    "speaker": "T2"
+  },
+  {
+    "word": "收到",
+    "time_ms": 5560,
+    "speaker": "T2"
+  }
+]
