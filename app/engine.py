@@ -21,7 +21,8 @@ import functools
 import math
 import re
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+from types import SimpleNamespace
 from typing import Any
 
 import numpy as np
@@ -93,13 +94,20 @@ class Transcript:
 class PairingContext:
     """Precomputed material shared by every recomputation of one upload.
 
-    Pair costs do not depend on the locks, so the 8 x 8 cost matrix is built
-    once per upload and reused for every lock change.
+    Pair costs do not depend on the locks.  They are nevertheless *not* all
+    computed up front: :class:`LazyPairCosts` starts from cheap, provably safe
+    lower bounds and only runs the word-level DP for a speaker combination
+    when the certifying solver asks for its exact error count.  Exact costs are
+    cached on this context and therefore reused by every lock change made on
+    the same two transcripts.
     """
 
     ref: Transcript
     hyp: Transcript
     pair_costs: Mapping[tuple[str, str], int]
+    lower_bounds: Mapping[tuple[str, str], int] | None = None
+    exact_costs: dict[tuple[str, str], int] = field(default_factory=dict)
+    scored_pairs: set[tuple[str, str]] = field(default_factory=set)
 
 
 @dataclass(frozen=True)
@@ -324,6 +332,169 @@ def pair_cost(ref_codes: np.ndarray, ref_times: np.ndarray,
     return _distance(_forward_row(ref_codes, ref_times, hyp_codes, hyp_times)[-1])
 
 
+def _greedy_feasible_slots(
+    times_a: Sequence[int] | np.ndarray,
+    times_b: Sequence[int] | np.ndarray,
+    gap_ms: int = MAX_ALIGN_GAP_MS,
+) -> int:
+    """Maximum number of disjoint pairs with ``|ta - tb| <= gap_ms``.
+
+    Both sequences must be sorted in ascending time order.  The earliest
+    feasible choice is optimal for ordered points on a line, so a two-pointer
+    scan computes the maximum cardinality in O(len(a) + len(b)) time and
+    O(1) extra memory.
+    """
+    i = j = 0
+    count = 0
+    n_a, n_b = len(times_a), len(times_b)
+    while i < n_a and j < n_b:
+        time_a = int(times_a[i])
+        time_b = int(times_b[j])
+        delta = time_a - time_b
+        if -gap_ms <= delta <= gap_ms:
+            count += 1
+            i += 1
+            j += 1
+        elif delta < 0:
+            # time_a is too early for time_b and every later b word.
+            i += 1
+        else:
+            # time_b is too early for time_a and every later a word.
+            j += 1
+    return count
+
+
+def _code_time_index(
+    codes: np.ndarray, times: np.ndarray
+) -> dict[int, list[int]]:
+    """Group word times by encoded vocabulary id (lists stay time-sorted)."""
+    index: dict[int, list[int]] = {}
+    for code, time_ms in zip(codes.tolist(), times.tolist()):
+        index.setdefault(int(code), []).append(int(time_ms))
+    return index
+
+
+def pair_lower_bound(
+    ref_codes: np.ndarray,
+    ref_times: np.ndarray,
+    hyp_codes: np.ndarray,
+    hyp_times: np.ndarray,
+    ref_code_times: Mapping[int, Sequence[int]] | None = None,
+    hyp_code_times: Mapping[int, Sequence[int]] | None = None,
+) -> int:
+    """Cheap, provably safe lower bound for :func:`pair_cost`.
+
+    For an alignment of ``n`` ref and ``m`` hyp words with ``D`` diagonals and
+    ``M`` exact matches among them, the edit count is ``n + m - D - M``.  We
+    bound ``D`` by the maximum number of time-feasible disjoint pairs and
+    ``M`` by the same greedy matching restricted to equal word texts.  Both
+    maxima are computed with linear two-pointer scans, so the result never
+    exceeds the exact edit distance.
+    """
+    n, m = len(ref_codes), len(hyp_codes)
+    diagonal_bound = _greedy_feasible_slots(ref_times, hyp_times)
+    match_bound = 0
+    if ref_code_times is not None and hyp_code_times is not None:
+        for code, ref_slot_times in ref_code_times.items():
+            hyp_slot_times = hyp_code_times.get(code)
+            if hyp_slot_times:
+                match_bound += _greedy_feasible_slots(
+                    ref_slot_times, hyp_slot_times
+                )
+    return max(0, n + m - diagonal_bound - match_bound)
+
+
+class LazyPairCosts(Mapping[tuple[str, str], int]):
+    """Exact pair costs computed on demand and cached for one upload.
+
+    Reads through the plain ``Mapping`` interface force an exact word-level DP
+    (this keeps :func:`solve_pairing` correct when called directly).  The
+    certifying solver instead reads :meth:`optimistic_cost`, which returns the
+    lower bound until the exact cost has been computed.
+    """
+
+    def __init__(
+        self,
+        edges: Sequence[tuple[str, str]],
+        enc_ref: Mapping[str, tuple[np.ndarray, np.ndarray]],
+        enc_hyp: Mapping[str, tuple[np.ndarray, np.ndarray]],
+        code_times_ref: Mapping[str, Mapping[int, Sequence[int]]],
+        code_times_hyp: Mapping[str, Mapping[int, Sequence[int]]],
+        lower_bounds: Mapping[tuple[str, str], int],
+    ) -> None:
+        self._edges = tuple(edges)
+        self._enc_ref = enc_ref
+        self._enc_hyp = enc_hyp
+        self._code_times_ref = code_times_ref
+        self._code_times_hyp = code_times_hyp
+        self._lower = dict(lower_bounds)
+        self._exact: dict[tuple[str, str], int] = {}
+        # Speaker combinations for which the word-level DP has actually run.
+        self.scored_pairs: set[tuple[str, str]] = set()
+
+    # ------------------------------------------------------------- bounds
+    def lower_bound(self, ref_speaker: str, hyp_speaker: str) -> int:
+        return self._lower[(ref_speaker, hyp_speaker)]
+
+    def is_exact(self, ref_speaker: str, hyp_speaker: str) -> bool:
+        return (ref_speaker, hyp_speaker) in self._exact
+
+    def optimistic_cost(self, ref_speaker: str, hyp_speaker: str) -> int:
+        edge = (ref_speaker, hyp_speaker)
+        cached = self._exact.get(edge)
+        if cached is not None:
+            return cached
+        return self._lower[edge]
+
+    # -------------------------------------------------------------- exact
+    def exact_cost(self, ref_speaker: str, hyp_speaker: str) -> int:
+        edge = (ref_speaker, hyp_speaker)
+        cached = self._exact.get(edge)
+        if cached is not None:
+            return cached
+        ref_codes, ref_times = self._enc_ref[ref_speaker]
+        hyp_codes, hyp_times = self._enc_hyp[hyp_speaker]
+        # Resolve through the module global so tests can monkeypatch
+        # ``app.engine.pair_cost`` and observe every combination scored.
+        value = pair_cost(ref_codes, ref_times, hyp_codes, hyp_times)
+        self._exact[edge] = value
+        self.scored_pairs.add(edge)
+        return value
+
+    @property
+    def exact_costs(self) -> Mapping[tuple[str, str], int]:
+        return self._exact
+
+    # ----------------------------------------------------- Mapping protocol
+    def __getitem__(self, edge: tuple[str, str]) -> int:
+        ref_speaker, hyp_speaker = edge
+        if edge in self._exact:
+            return self._exact[edge]
+        return self.exact_cost(ref_speaker, hyp_speaker)
+
+    def __iter__(self):
+        return iter(self._edges)
+
+    def __len__(self) -> int:
+        return len(self._edges)
+
+
+class _OptimisticCostView(Mapping[tuple[str, str], int]):
+    """Cost mapping that serves lower bounds for not-yet-scored pairs."""
+
+    def __init__(self, lazy: LazyPairCosts) -> None:
+        self._lazy = lazy
+
+    def __getitem__(self, edge: tuple[str, str]) -> int:
+        return self._lazy.optimistic_cost(*edge)
+
+    def __iter__(self):
+        return iter(self._lazy)
+
+    def __len__(self) -> int:
+        return len(self._lazy)
+
+
 def _backward_row(
     a_codes: np.ndarray,
     a_times: np.ndarray,
@@ -462,6 +633,8 @@ def _encode_speakers(
 ) -> tuple[
     dict[str, tuple[np.ndarray, np.ndarray]],
     dict[str, tuple[np.ndarray, np.ndarray]],
+    dict[str, dict[int, list[int]]],
+    dict[str, dict[int, list[int]]],
 ]:
     """Encode word texts as integers once for all pair cost computations."""
     vocab: dict[str, int] = {}
@@ -479,7 +652,15 @@ def _encode_speakers(
 
     ref_enc = {name: encode(ref.speaker_words[name]) for name in ref.speakers}
     hyp_enc = {name: encode(hyp.speaker_words[name]) for name in hyp.speakers}
-    return ref_enc, hyp_enc
+    ref_code_times = {
+        name: _code_time_index(codes, times)
+        for name, (codes, times) in ref_enc.items()
+    }
+    hyp_code_times = {
+        name: _code_time_index(codes, times)
+        for name, (codes, times) in hyp_enc.items()
+    }
+    return ref_enc, hyp_enc, ref_code_times, hyp_code_times
 
 
 def _validate_locks(
@@ -520,17 +701,99 @@ def _mapping_key(
 
 
 def build_context(ref: Transcript, hyp: Transcript) -> PairingContext:
-    """Compute the full one-to-one pair cost matrix once."""
-    ref_enc, hyp_enc = _encode_speakers(ref, hyp)
-    pair_costs: dict[tuple[str, str], int] = {}
-    for ref_speaker in ref.speakers:
+    """Build the reusable scoring context without running all 8 x 8 DPs.
+
+    Only linear-time lower bounds are computed here.  Exact pair costs are
+    filled in lazily by :func:`solve_pairing_certified` (or on direct access
+    through :attr:`PairingContext.pair_costs`).
+    """
+    ref_enc, hyp_enc, ref_code_times, hyp_code_times = _encode_speakers(
+        ref, hyp
+    )
+    edges = [
+        (ref_speaker, hyp_speaker)
+        for ref_speaker in ref.speakers
+        for hyp_speaker in hyp.speakers
+    ]
+    lower_bounds: dict[tuple[str, str], int] = {}
+    for ref_speaker, hyp_speaker in edges:
         ref_codes, ref_times = ref_enc[ref_speaker]
-        for hyp_speaker in hyp.speakers:
-            hyp_codes, hyp_times = hyp_enc[hyp_speaker]
-            pair_costs[(ref_speaker, hyp_speaker)] = pair_cost(
-                ref_codes, ref_times, hyp_codes, hyp_times
-            )
-    return PairingContext(ref=ref, hyp=hyp, pair_costs=pair_costs)
+        hyp_codes, hyp_times = hyp_enc[hyp_speaker]
+        lower_bounds[(ref_speaker, hyp_speaker)] = pair_lower_bound(
+            ref_codes,
+            ref_times,
+            hyp_codes,
+            hyp_times,
+            ref_code_times[ref_speaker],
+            hyp_code_times[hyp_speaker],
+        )
+    costs = LazyPairCosts(
+        edges,
+        ref_enc,
+        hyp_enc,
+        ref_code_times,
+        hyp_code_times,
+        lower_bounds,
+    )
+    return PairingContext(
+        ref=ref,
+        hyp=hyp,
+        pair_costs=costs,
+        lower_bounds=lower_bounds,
+        exact_costs=costs._exact,
+        scored_pairs=costs.scored_pairs,
+    )
+
+
+def solve_pairing_certified(
+    ref: Transcript,
+    hyp: Transcript,
+    locks: Mapping[str, str] | None = None,
+    context: PairingContext | None = None,
+) -> PairingSolution:
+    """Return exactly the same solution as :func:`solve_pairing`, scoring only
+    pairs that can take part in the optimum.
+
+    Each not-yet-exact pair is represented by its provable lower bound and the
+    unchanged assignment DP is run.  Every pair used by its winning mapping is
+    then scored exactly and the DP is repeated.  When the winner uses only
+    exact costs, the lower-bound inequality certifies it against the full
+    matrix: for every assignment ``X``, ``exact(X) >= optimistic(X) >=
+    optimistic(winner) == exact(winner)``.  Equal-cost assignments share the
+    same deterministic tie-break key (pair count then stable speaker order),
+    so ties are resolved identically to the eager algorithm.  At most one new
+    combination per used edge is scored; the loop always terminates.
+    """
+    locks = dict(locks or {})
+    if context is None:
+        context = build_context(ref, hyp)
+
+    costs = context.pair_costs
+    if not isinstance(costs, LazyPairCosts):
+        # Hand-built/exact mapping: nothing to certify, behave classically.
+        return solve_pairing(ref, hyp, locks, context)
+
+    forced = _validate_locks(locks, ref, hyp)
+    view = _OptimisticCostView(costs)
+    probe_context = SimpleNamespace(pair_costs=view)
+
+    solution: PairingSolution | None = None
+    while True:
+        solution = solve_pairing(ref, hyp, locks, probe_context)
+        needed = {
+            (r, h)
+            for r, h in forced.items()
+            if not costs.is_exact(r, h)
+        }
+        needed.update(
+            (r, h)
+            for r, h in solution.pairs.items()
+            if not costs.is_exact(r, h)
+        )
+        if not needed:
+            return solution
+        for ref_speaker, hyp_speaker in needed:
+            costs.exact_cost(ref_speaker, hyp_speaker)
 
 
 def solve_pairing(
@@ -668,9 +931,9 @@ def build_result(
     locks: Mapping[str, str] | None = None,
     context: PairingContext | None = None,
 ) -> EngineResult:
-    """Solve the pairing and produce a display-ready result."""
+    """Solve the pairing lazily and produce a display-ready result."""
     locks = dict(locks or {})
-    solution = solve_pairing(ref, hyp, locks, context)
+    solution = solve_pairing_certified(ref, hyp, locks, context)
     errors: list[ErrorItem] = []
     pair_rows: list[PairRow] = []
     sequence = 0

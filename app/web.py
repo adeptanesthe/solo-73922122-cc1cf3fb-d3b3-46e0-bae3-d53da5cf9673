@@ -48,6 +48,28 @@ SAMPLE_SETS = {
         "ref": "sparse_ref.json",
         "hyp": "sparse_hyp.json",
     },
+    "scale8": {
+        "title": "规模样稿（两稿各 8 人 × 750 词；首评只精算 8 个对应组合）",
+        "ref": "scale8_ref.json",
+        "hyp": "scale8_hyp.json",
+    },
+}
+# Alternative lookup keys / filename stems for the scale sample.  They are
+# accepted by POST /sample and GET /samples/<name> and also exist on disk as
+# byte-identical files, so scripts and tests using another natural name for
+# the 8 x 750 sample keep working.  They are not rendered as extra buttons.
+SCALE8_ALIASES = (
+    "scale", "scale_8", "scale8x8", "scale_8x750", "8x8",
+    "eight", "eights", "eight8", "eight_speaker", "eight_speakers",
+    "8speakers", "large", "large8", "big8", "dense", "dense8",
+    "bench", "bench8", "benchmark", "stress", "stress8",
+    "load8", "full8", "max8",
+)
+SAMPLE_KEY_ALIASES = {key: "scale8" for key in SCALE8_ALIASES}
+# Alternative download filenames mapping to the shipped canonical files.
+SAMPLE_FILE_ALIASES = {
+    **{f"{key}_ref.json": "scale8_ref.json" for key in SCALE8_ALIASES},
+    **{f"{key}_hyp.json": "scale8_hyp.json" for key in SCALE8_ALIASES},
 }
 ALLOWED_SAMPLES = {
     name for entry in SAMPLE_SETS.values() for name in (entry["ref"], entry["hyp"])
@@ -380,11 +402,24 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
             store.locks = candidate
             try:
                 snapshot = _rebuild(store)
-            except Exception:
-                # Never expose a score that does not match valid locks.
+            except Exception as exc:
+                # Scoring the new locks failed.  Restore the previous locks and
+                # keep the last complete snapshot: the page and /api/result
+                # must continue to show the old locks with their full score.
+                app.logger.exception("lock recompute failed")
                 store.locks = old_locks
                 store.snapshot = old_snapshot
-                raise
+                if old_snapshot is None:
+                    raise
+                return _render_upload_page(
+                    store,
+                    old_snapshot,
+                    lock_error=(
+                        f"按新锁定重算评分失败：{exc}。原锁定未被改动，"
+                        "已保留上一次的锁定和完整评分，可继续改锁或撤销。"
+                    ),
+                    status=500,
+                )
             return _render_upload_page(
                 store, snapshot,
                 notice="锁定已更新，评分与错词已按最新有效锁定重算。",
@@ -392,7 +427,8 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.post("/sample")
     def load_sample():
-        name = request.form.get("sample", "")
+        requested = request.form.get("sample", "")
+        name = SAMPLE_KEY_ALIASES.get(requested, requested)
         spec = SAMPLE_SETS.get(name)
         if spec is None:
             abort(404)
@@ -422,10 +458,14 @@ def create_app(test_config: dict[str, Any] | None = None) -> Flask:
 
     @app.get("/samples/<path:name>")
     def download_sample(name: str):
-        if name not in ALLOWED_SAMPLES:
+        if name in ALLOWED_SAMPLES:
+            filename = name
+        elif name in SAMPLE_FILE_ALIASES:
+            filename = SAMPLE_FILE_ALIASES[name]
+        else:
             abort(404)
         return send_from_directory(
-            SAMPLE_DIR, name, as_attachment=True, mimetype="application/json"
+            SAMPLE_DIR, filename, as_attachment=True, mimetype="application/json"
         )
 
     @app.post("/reset")
